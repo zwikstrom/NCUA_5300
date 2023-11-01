@@ -1,7 +1,4 @@
-# NCUA_5300
-R script that combines as many separate 5300 Call Report files into one master file set and GeoCodes data.
-
-# GitHub README for NCUA 5300 Call Report Data Integration
+# NCUA 5300 Call Report Data Integration
 
 This repository contains a script designed to process multiple separate files of NCUA 5300 Call Report data and combine them into one master file. The primary functionality of the script includes dynamically handling changes in the structure of the input files and making the column names more user-friendly.
 
