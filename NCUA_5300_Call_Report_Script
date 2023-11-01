@@ -1,0 +1,129 @@
+# Step 1
+# Set the working directory to the path where the files are located
+# Uncomment and modify this step as needed
+setwd("/path/to/root/directory")
+
+# Define the directory where the files are located
+directory <- "/path/to/root/directory"
+  
+  # List all files in the root directory and its subdirectories
+  all_files <- list.files(recursive = TRUE)
+
+# Get the unique filenames
+unique_files <- unique(basename(all_files))
+
+
+# Step 2
+# Loop through each unique filename
+for (file_name in unique_files) {
+  # Skip "Readme.txt" and "Report1.txt" files
+  if (file_name %in% c("Readme.txt", "Report1.txt")) {
+    next
+  }
+  
+  # Get a list of files with the same name
+  file_list <- all_files[basename(all_files) == file_name]
+  
+  # Determine the file with the longest number of columns
+  max_cols <- 0
+  max_file <- ""
+  for (file_path in file_list) {
+    # Read in the file
+    data <- read.csv(file_path, header = TRUE)
+    
+    # Check if this file has more columns than the previous max
+    if (ncol(data) > max_cols) {
+      max_cols <- ncol(data)
+      max_file <- file_path
+    }
+  }
+  
+  # Read in the file with the longest number of columns
+  combined_data <- read.csv(max_file, header = TRUE)
+  
+  # Loop through the other files and add their columns to the combined data
+  for (file_path in file_list) {
+    if (file_path == max_file) {
+      next
+    }
+    
+    # Read in the file
+    data <- read.csv(file_path, header = TRUE)
+    
+    # Add any missing columns to the data
+    missing_cols <- setdiff(colnames(combined_data), colnames(data))
+    for (col_name in missing_cols) {
+      data[[col_name]] <- NA
+    }
+    
+    # Add the data to the combined data
+    combined_data <- rbind(combined_data, data)
+  }
+  
+  # Step 3: Remove duplicate rows from the combined data frame
+  combined_data <- unique(combined_data)
+  
+  # Step 4: Write combined files to a new sub-directory with modified names
+  output_directory <- paste(directory, 'Combined 5300 Call Report Data', sep = '\\')
+  # Create the output directory if it doesn't exist
+  dir.create(output_directory, showWarnings = FALSE)
+  
+  for (file in file_list) {
+    # Get the original file name without extension
+    file_name <- tools::file_path_sans_ext(basename(file))
+    
+    # Construct the new file name with the .csv extension
+    new_file_name <- paste0(file_name, ".csv")
+    
+    # Write the combined data frame to a new file in the output directory
+    write.csv(combined_data, file.path(output_directory, new_file_name), row.names = FALSE)
+  }
+}
+
+# Step 5: Rename columns based on the AcctDesc file
+setwd("/path/to/directory/with/combined/data/files")
+
+# Define the directory where the combined files are located
+directory <- "/path/to/directory/with/combined/data/files"
+
+# List all files in the root directory and its sub-directories
+all_files <- list.files(recursive = TRUE)
+
+# Get the unique filenames
+unique_files <- unique(basename(all_files))
+
+# Define the path to the AcctDesc file
+acct_desc_file <- paste(directory, 'AcctDesc.csv', sep = '\\')
+
+# Read the AcctDesc file
+acct_desc <- read.csv(acct_desc_file, stringsAsFactors = FALSE)
+
+for (file in unique_files) {
+  file_name <- tools::file_path_sans_ext(basename(file))
+  
+  # Check if the file name contains "FS220" and matches the TableName column in AcctDesc
+  if (grepl("FS220", file_name, ignore.case = TRUE) && any(acct_desc$TableName == file_name)) {
+    matching_row <- tolower(acct_desc$TableName) == tolower(file_name)
+    matching_columns <- tolower(acct_desc$Account[matching_row])
+    
+    # Read the file with modified column names
+    file_data <- read.csv(file, stringsAsFactors = FALSE)
+    
+    # Replace column names if there is a match
+    for (col in colnames(file_data)) {
+      matching_col <- tolower(col) %in% matching_columns
+      
+      if (any(matching_col)) {
+        new_col_name <- acct_desc$AcctName[matching_row & tolower(acct_desc$Account) == tolower(col)]
+        colnames(file_data)[colnames(file_data) == col] <- new_col_name
+      }
+    }
+    
+    # Write the file with modified column names
+    write.csv(file_data, file, row.names = FALSE)
+  }
+}
+
+# Step 6: Move the files back to the original directory
+# Uncomment and modify this step as needed
+#file.copy(file_list, main_directory, overwrite = TRUE)
