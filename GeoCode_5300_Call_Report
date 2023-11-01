@@ -1,0 +1,35 @@
+# Load required packages
+library(tidyverse)
+library(censusxy)
+
+# Read in data for GeoCoding. Either the "ATM Locations" or "Credit Union Branch Information" files.
+dat <- read.csv('/path/to/directory/with/combined/data/files', header = TRUE)
+
+# Combine separate street address into one column
+dat <- cbind(dat, address = str_trim(paste(dat$PhysicalAddressLine1, ' ', dat$PhysicalAddressLine2)))
+dat$CYCLE_DATE <- as.Date(mdy(dat$CYCLE_DATE))
+dat <- tibble::rowid_to_column(dat, "ID")
+
+# Create data set of unique addresses to get GeoCoded
+geo <- dat %>%
+  select(ID, address, city = PhysicalAddressCity, state = PhysicalAddressStateCode, zipcode = PhysicalAddressPostalCode) %>%
+  unique() %>%
+  arrange(ID, address, city, state, zipcode)
+
+# Split address data into smaller batches to be looped through for GeoCoding.
+# This method creates a list in batches of 200
+batches <- split(geo, (seq(nrow(geo)) - 1) %/% 200)
+
+results <- cxy_geocode(geo, id = geo$id, street = geo$address, city = geo$city, state = geo$state, zip = geo$zipcode, output = "full", benchmark = "Public_AR_Current", parallel = 3, class = "dataframe")
+
+# Loop through address file to GeoCode data
+t2 <- data.frame()
+#for (i in 1:length(batches)) {#1:length(batches)) {
+# Added this in due to time out of GeoCoding. We left off at batch 868
+for (i in 1:length(batches)) {#1:length(batches)) {
+  t <- cxy_geocode(batches[[i]], street = "address", city = "city", state = "state", zip = "zipcode", class = "dataframe", parallel = 3, output = 'simple', timeout = 60)
+  t2 <- rbind(t2, t)
+}
+
+dat2 <- unique(inner_join(dat, t2, by = c('ID' = 'ID')))#by = c('address' = 'address', 'PhysicalAddressCity' = 'city','PhysicalAddressStateCode' = 'state', 'PhysicalAddressPostalCode' = 'zipcode'))
+write.csv(dat2, '/path/to/directory', row.names = FALSE)
